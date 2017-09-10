@@ -7,7 +7,15 @@ use std::str;
 
 pub struct ShaderProgram{
   handle: u32,
-  vbo: u32
+  vbo: u32,
+  zoom_loc: i32,
+  aspect_loc: i32,
+  origin_loc: i32,
+  limit_loc: i32,
+  zoom: f32,
+  aspect: f32,
+  origin: (f32, f32),
+  limit: i32
 }
 
 fn compile_shader(shader_type: u32) -> u32{
@@ -83,15 +91,58 @@ impl ShaderProgram{
       gl::AttachShader(handle, f_shader);
       gl::LinkProgram(handle);
       gl::UseProgram(handle);
+
+      let zoom_loc = gl::GetUniformLocation(handle, b"Zoom\0".as_ptr() as *const _);
+      let aspect_loc = gl::GetUniformLocation(handle, b"AspectRatio\0".as_ptr() as *const _);
+      let origin_loc = gl::GetUniformLocation(handle, b"Origin\0".as_ptr() as *const _);
+      let limit_loc = gl::GetUniformLocation(handle, b"Limit\0".as_ptr() as *const _);
+
+      println!("zoom_loc: {}", zoom_loc);
+      println!("aspect_loc: {}", aspect_loc);
+      println!("origin_loc: {}", origin_loc);
+
       ShaderProgram{
         handle: handle,
-        vbo: vbo
+        vbo: vbo,
+        zoom_loc: zoom_loc,
+        aspect_loc: aspect_loc,
+        origin_loc: origin_loc,
+        limit_loc: limit_loc,
+        zoom: 1.0,
+        aspect: 2.0,
+        origin: (0.0, 0.0),
+        limit: 3
       }
     }
   }
 
+  pub fn set_aspect_ratio(&mut self, aspect: f32){
+    self.aspect = aspect;
+  }
+
+  pub fn delta_origin(&mut self, dx_rel: f64, dy_rel: f64){
+    let dx = (dx_rel as f32)*2.0*self.zoom;
+    let dy = (dy_rel as f32)*2.0*self.zoom;
+    self.origin = (self.origin.0 + dx, self.origin.1 + dy);
+  }
+
+  pub fn delta_zoom(&mut self, delta: f32){
+    self.zoom = self.zoom*(1.0+delta);
+  }
+
+  pub fn incr_limit(&mut self, dl: i32){
+    self.limit = self.limit + dl;
+    if self.limit < 2 { self.limit = 2; }
+  }
+
   pub fn render(&self){
     unsafe{
+
+      gl::Uniform1f(self.aspect_loc, self.aspect);
+      gl::Uniform1f(self.zoom_loc, self.zoom);
+      gl::Uniform2f(self.origin_loc, self.origin.0, self.origin.1);
+      gl::Uniform1i(self.limit_loc, self.limit);
+
       gl::EnableVertexAttribArray(0);
       gl::BindVertexArray(0);
       gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
@@ -120,30 +171,43 @@ void main()
 }
 \0";
 
-const FRAGMENT_SHADER_CODE2: &'static [u8] = b"
-#version 400
-in vec2 Position;
-layout (location = 0) out vec3 FragColor;
-void main()
-{
-  float lightness = 0.1;
-  float r = (Position.x+1)/2;
-  FragColor = vec3(r, lightness, lightness);
-}
-\0";
-
 const FRAGMENT_SHADER_CODE: &'static [u8] = b"
 #version 400
 in vec2 Position;
+uniform vec2 Origin = vec2(0,0);
+uniform float AspectRatio;
+uniform float Zoom;
+uniform int Limit;
 layout (location = 0) out vec4 FragColor;
+
+float getShit(float value)
+{
+  float thing = value*5;
+  if(thing < 0 || thing > 3) return 0;
+  if(thing < 1) return thing;
+  if(thing > 2) return 3 - thing;
+  return 1;
+}
+
+vec3 getRainbow(float value){
+  float red = getShit(value);
+  float green = getShit(value-0.2);
+  float blue = getShit(value-0.4);
+  return vec3(red, green, blue);
+}
+
+vec3 getBlackWhite(float value){
+  return vec3(value, value, value);
+}
+
 void main()
 {
-  float lightness = 0;
-  float re = Position.x*2;
-  float im = Position.y;
+  float value = 0;
+  float re = ((Position.x*Zoom-Origin.x)*AspectRatio);
+  float im = ((Position.y*Zoom-Origin.y));
   float next_re = re;
   float next_im = im;
-  int limit = 50;
+  int limit = max(2, Limit);
   for(int n = 0; n < limit; n++)
   {
     float new_re = next_re*next_re - next_im*next_im + re;
@@ -153,11 +217,15 @@ void main()
     float abs_val_sq = next_re*next_re + next_im*next_im;
     if(abs_val_sq > 4)
     {
-      float l = n;
-      lightness = l/limit;
+      int modder = 256;
+      float divider = modder-1;
+      float l = (n%modder);
+      //value = l/limit;
+      value = l/divider;
       break;
     }
   }
-  FragColor = vec4(lightness, lightness, lightness, 1);
+  vec3 color = getRainbow(value);
+  FragColor = vec4(color, 1);
 }
 \0";
