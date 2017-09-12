@@ -111,7 +111,7 @@ impl ShaderProgram{
         zoom: 1.0,
         aspect: 2.0,
         origin: (0.0, 0.0),
-        limit: 3
+        limit: 50
       }
     }
   }
