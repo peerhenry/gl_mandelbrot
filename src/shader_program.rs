@@ -203,8 +203,8 @@ vec3 getBlackWhite(float value){
 void main()
 {
   float value = 0;
-  float re = ((Position.x*Zoom-Origin.x)*AspectRatio);
-  float im = ((Position.y*Zoom-Origin.y));
+  float re = ((Position.x*Zoom - Origin.x)*AspectRatio);
+  float im = ((Position.y*Zoom - Origin.y));
   float next_re = re;
   float next_im = im;
   int limit = max(2, Limit);
@@ -217,7 +217,7 @@ void main()
     float abs_val_sq = next_re*next_re + next_im*next_im;
     if(abs_val_sq > 4)
     {
-      int modder = 256;
+      int modder = 64;
       float divider = modder-1;
       float l = (n%modder);
       //value = l/limit;
