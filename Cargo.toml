@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["PeerHenry <peerhenry@gmail.com>"]
 
 [dependencies]
-glutin = "*"
+glutin = "0.19.0"
 gl = "*"

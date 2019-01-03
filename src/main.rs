@@ -1,5 +1,7 @@
 extern crate glutin;
+use glutin::dpi::LogicalPosition;
 use glutin::{GlContext, ContextBuilder, Event, WindowEvent, EventsLoop, GlWindow};
+use glutin::dpi::LogicalSize;
 extern crate gl;
 mod shader_program;
 use shader_program::{ShaderProgram};
@@ -8,7 +10,7 @@ fn create_window() -> (EventsLoop, GlWindow){
   let events_loop = EventsLoop::new();
   let window_builder = glutin::WindowBuilder::new()
     .with_title("Hello, Mandelbrot!")
-    .with_dimensions(1600, 900);
+    .with_dimensions(LogicalSize::new(1600.0, 900.0));
   let context = ContextBuilder::new().with_vsync(true);
   let gl_window = GlWindow::new(window_builder, context, &events_loop).unwrap();
 
@@ -23,14 +25,14 @@ fn create_window() -> (EventsLoop, GlWindow){
 
 struct EventPoller{
   is_dragging: bool,
-  prev_position: (f64, f64)
+  prev_position: LogicalPosition
 }
 
 impl EventPoller{
   pub fn new() -> EventPoller{
     EventPoller{
       is_dragging: false,
-      prev_position: (0.0, 0.0)
+      prev_position: LogicalPosition::new(0.0, 0.0)
     }
   }
 
@@ -39,15 +41,17 @@ impl EventPoller{
         glutin::MouseScrollDelta::LineDelta(d_hor, d_vert) => {
           program.delta_zoom( -(d_hor+d_vert)/10.0 );
         },
-        glutin::MouseScrollDelta::PixelDelta(d_hor, d_vert) => {
+        glutin::MouseScrollDelta::PixelDelta(pos) => {
+          let (d_hor, d_vert): (f32, f32) = (pos.x as f32, pos.y as f32);
           program.delta_zoom( -(d_hor+d_vert)/10.0 );
         }
+        _ => {}
       }
   }
 
-  fn handle_mouse_move(&mut self, position: (f64, f64), program: &mut ShaderProgram){
-    let dpx = position.0 - self.prev_position.0;
-    let dpy = position.1 - self.prev_position.1;
+  fn handle_mouse_move(&mut self, position: LogicalPosition, program: &mut ShaderProgram){
+    let dpx = position.x - self.prev_position.x;
+    let dpy = position.y - self.prev_position.y;
     self.prev_position = position;
     let dx_rel = dpx/1600.0;
     let dy_rel = dpy/900.0;
@@ -58,7 +62,7 @@ impl EventPoller{
 
   fn handle_window_event(&mut self, event: WindowEvent, running: &mut bool, program: &mut ShaderProgram){
     match event {
-      WindowEvent::Closed => { *running = false; },
+      WindowEvent::CloseRequested => { *running = false; },
       WindowEvent::MouseWheel {delta, ..} => { self.handle_mouse_wheel(delta, program); },
       WindowEvent::MouseInput {state, button, ..} => {
         match button {
@@ -92,7 +96,7 @@ impl EventPoller{
           }
         }
       },
-      WindowEvent::MouseMoved { position, .. } => { self.handle_mouse_move(position, program); },
+      WindowEvent::CursorMoved { position, .. } => { self.handle_mouse_move(position, program); },
       _ => {}
     }
   }
