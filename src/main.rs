@@ -6,11 +6,25 @@ extern crate gl;
 mod shader_program;
 use shader_program::{ShaderProgram};
 
-fn create_window() -> (EventsLoop, GlWindow){
+fn main() {
+  let width: f64 = 1600.0;
+  let height: f64 = 900.0;
+  let (events_loop, gl_window) = create_window(width, height);
+  let mut program = ShaderProgram::new();
+  program.set_aspect_ratio((width/height) as f32);
+  unsafe {
+    gl_window.make_current().unwrap();
+    gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
+    gl::ClearColor(0.0, 154.0/255.0, 206.0/255.0, 235.0/255.0);
+  }
+  run(events_loop, gl_window, program);
+}
+
+fn create_window(width: f64, height: f64) -> (EventsLoop, GlWindow) {
   let events_loop = EventsLoop::new();
   let window_builder = glutin::WindowBuilder::new()
-    .with_title("Hello, Mandelbrot!")
-    .with_dimensions(LogicalSize::new(1600.0, 900.0));
+    .with_title("Hello Mandelbrot!")
+    .with_dimensions(LogicalSize::new(width, height));
   let context = ContextBuilder::new().with_vsync(true);
   let gl_window = GlWindow::new(window_builder, context, &events_loop).unwrap();
 
@@ -23,20 +37,20 @@ fn create_window() -> (EventsLoop, GlWindow){
   (events_loop, gl_window)
 }
 
-struct EventPoller{
+struct EventPoller {
   is_dragging: bool,
   prev_position: LogicalPosition
 }
 
-impl EventPoller{
-  pub fn new() -> EventPoller{
+impl EventPoller {
+  pub fn new() -> EventPoller {
     EventPoller{
       is_dragging: false,
       prev_position: LogicalPosition::new(0.0, 0.0)
     }
   }
 
-  fn handle_mouse_wheel(&mut self, delta: glutin::MouseScrollDelta, program: &mut ShaderProgram){
+  fn handle_mouse_wheel(&mut self, delta: glutin::MouseScrollDelta, program: &mut ShaderProgram) {
     match delta {
         glutin::MouseScrollDelta::LineDelta(d_hor, d_vert) => {
           program.delta_zoom( -(d_hor+d_vert)/10.0 );
@@ -49,7 +63,7 @@ impl EventPoller{
       }
   }
 
-  fn handle_mouse_move(&mut self, position: LogicalPosition, program: &mut ShaderProgram){
+  fn handle_mouse_move(&mut self, position: LogicalPosition, program: &mut ShaderProgram) {
     let dpx = position.x - self.prev_position.x;
     let dpy = position.y - self.prev_position.y;
     self.prev_position = position;
@@ -60,7 +74,7 @@ impl EventPoller{
     }
   }
 
-  fn handle_window_event(&mut self, event: WindowEvent, running: &mut bool, program: &mut ShaderProgram){
+  fn handle_window_event(&mut self, event: WindowEvent, running: &mut bool, program: &mut ShaderProgram) {
     match event {
       WindowEvent::CloseRequested => { *running = false; },
       WindowEvent::MouseWheel {delta, ..} => { self.handle_mouse_wheel(delta, program); },
@@ -127,20 +141,4 @@ fn run(mut events_loop: EventsLoop, gl_window: GlWindow, mut program: ShaderProg
     program.render();
     gl_window.swap_buffers().unwrap();
   }
-}
-
-fn main(){
-  // Setup window
-  let (events_loop, gl_window) = create_window();
-
-  let mut program = ShaderProgram::new();
-  program.set_aspect_ratio(16.0/9.0);
-
-  unsafe {
-    gl_window.make_current().unwrap();
-    gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
-    gl::ClearColor(0.0, 154.0/255.0, 206.0/255.0, 235.0/255.0);
-  }
-
-  run(events_loop, gl_window, program);
 }
