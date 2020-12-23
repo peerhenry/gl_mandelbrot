@@ -15,4 +15,4 @@ This [Rust](https://www.rust-lang.org/en-US/) application does interactive realt
 
 * Display number of iterations.
 * Allow user to choose a color scheme.
-* Move shaders to GLSL files.
+* Rescale view after window resize
