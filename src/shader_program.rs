@@ -1,9 +1,10 @@
 extern crate gl;
 use gl::types::*;
-use std::ptr;
+use std::ptr::null;
 use std::mem;
 use std::process;
 use std::str;
+use std::fs;
 
 pub struct ShaderProgram{
   handle: u32,
@@ -18,32 +19,26 @@ pub struct ShaderProgram{
   limit: i32
 }
 
-fn compile_shader(shader_type: u32) -> u32{
+fn compile_shader(shader_type: u32, file: &str) -> u32{
   unsafe{
     let handle = gl::CreateShader(shader_type);
-    if shader_type == gl::VERTEX_SHADER { 
-      gl::ShaderSource(handle, 1, [VERTEX_SHADER_CODE.as_ptr() as *const _].as_ptr(), ptr::null()); 
-    }
-    else {
-      gl::ShaderSource(handle, 1, [FRAGMENT_SHADER_CODE.as_ptr() as *const _].as_ptr(), ptr::null());
-    }
+    let shader_src: &str = &fs::read_to_string(file).unwrap();
+    let ptr: *const u8 = shader_src.as_bytes().as_ptr();
+    let ptr_i8: *const i8 = std::mem::transmute(ptr);
+    gl::ShaderSource(handle, 1, &ptr_i8, null()); // null means the string is assumed to be null-terminated
     gl::CompileShader(handle);
     let mut result = mem::uninitialized();
     gl::GetShaderiv(handle, gl::COMPILE_STATUS, &mut result);
     if result == (gl::FALSE as i32)
     {
-      if shader_type == gl::VERTEX_SHADER {
-        println!("Vertex shader compilation failed!");
-      }
-      else {
-        println!("Fragment shader compilation failed!");
-      }
+      let which = if shader_type == gl::VERTEX_SHADER { "Vertex" } else { "Fragment" };
+      eprintln!("{} shader compilation failed!", which);
       let mut infolog: [GLchar; 200] = [0; 200];
       let mut il = mem::uninitialized();
       gl::GetShaderInfoLog(handle, 1024, &mut il, &mut infolog[0]);
       let til: [u8; 200] = mem::transmute(infolog);
       let gl_error_str = str::from_utf8(&til).unwrap();
-      println!("{}", gl_error_str); // print the gl error
+      eprintln!("{}", gl_error_str); // print the gl error
       process::exit(0x0100);
     }
     handle
@@ -81,8 +76,8 @@ fn create_vertex_buffer() -> u32{
 
 impl ShaderProgram{
   pub fn new() -> ShaderProgram{
-    let v_shader = compile_shader(gl::VERTEX_SHADER);
-    let f_shader = compile_shader(gl::FRAGMENT_SHADER);
+    let v_shader = compile_shader(gl::VERTEX_SHADER, "src/vertex.glsl");
+    let f_shader = compile_shader(gl::FRAGMENT_SHADER, "src/fragment.glsl");
     let vbo = create_vertex_buffer();
     // Build the shader program
     unsafe{
@@ -152,80 +147,10 @@ impl ShaderProgram{
         gl::FLOAT,           // type
         gl::FALSE,           // normalized?
         0,                  // stride
-        ptr::null()        // array buffer offset
+        null()        // array buffer offset
       );
       gl::DrawArrays(gl::TRIANGLES, 0, 6);
       gl::DisableVertexAttribArray(0);
     }
   }
 }
-
-const VERTEX_SHADER_CODE: &'static [u8] = b"
-#version 400
-layout (location = 0) in vec2 VertexPosition;
-out vec2 Position;
-void main()
-{
-  Position = VertexPosition;
-  gl_Position = vec4(VertexPosition, 0, 1);
-}
-\0";
-
-const FRAGMENT_SHADER_CODE: &'static [u8] = b"
-#version 400
-in vec2 Position;
-uniform vec2 Origin = vec2(0,0);
-uniform float AspectRatio;
-uniform float Zoom;
-uniform int Limit;
-layout (location = 0) out vec4 FragColor;
-
-float getShit(float value)
-{
-  float thing = value*5;
-  if(thing < 0 || thing > 3) return 0;
-  if(thing < 1) return thing;
-  if(thing > 2) return 3 - thing;
-  return 1;
-}
-
-vec3 getRainbow(float value){
-  float red = getShit(value);
-  float green = getShit(value-0.2);
-  float blue = getShit(value-0.4);
-  return vec3(red, green, blue);
-}
-
-vec3 getBlackWhite(float value){
-  return vec3(value, value, value);
-}
-
-void main()
-{
-  float value = 0;
-  float re = ((Position.x*Zoom - Origin.x)*AspectRatio);
-  float im = ((Position.y*Zoom - Origin.y));
-  float next_re = re;
-  float next_im = im;
-  int limit = max(2, Limit);
-  for(int n = 0; n < limit; n++)
-  {
-    float new_re = next_re*next_re - next_im*next_im + re;
-    float new_im = 2*next_re*next_im + im;
-    next_re = new_re;
-    next_im = new_im;
-    float abs_val_sq = next_re*next_re + next_im*next_im;
-    if(abs_val_sq > 4)
-    {
-      int modder = 64;
-      float divider = modder-1;
-      float l = (n%modder);
-      //value = l/limit;
-      value = l/divider;
-      break;
-    }
-  }
-  vec3 color = getRainbow(value);
-  FragColor = vec4(color, 1);
-}
-\0";
