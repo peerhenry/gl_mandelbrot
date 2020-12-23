@@ -5,7 +5,6 @@ use std::mem;
 use std::process;
 use std::str;
 use std::fs;
-use std::ffi::{CString, CStr};
 
 pub struct ShaderProgram{
   handle: u32,
